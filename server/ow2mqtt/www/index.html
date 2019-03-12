@@ -1,0 +1,244 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title></title>
+    <link rel="stylesheet" type="text/css" href="css/material.min.css" />
+	<style>
+		html {
+			margin: 0;
+			padding: 0;
+			font-size: 62.5%;
+		}
+
+		body {
+			max-width: 800px;
+			min-width: 300px;
+			margin: 0 auto;
+			padding: 20px 10px;
+			font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+			font-size: 14px;
+			color: #c8c8c8;
+			background-color: #272b30;
+		}
+
+		h1 {
+			font-size: 24px;
+			font-weight: 200;
+		}
+
+		h2 {
+			font-size: 20px;
+			font-weight: 200;
+		}
+
+		th {
+			font-size: 18px;
+			font-weight: 200;
+		}
+        td { padding:2px}
+		.demo {
+			overflow: auto;
+			border: 1px solid silver;
+			min-height: 100px;
+		}
+
+		.left {
+			text-align: left;
+			line-break: auto;
+		}
+
+		.right {
+			text-align: right;
+		}
+
+		.inp {
+			width: 100%;
+		}
+
+		.tab {
+			width: 100%;
+		}
+
+		.err {
+			color: red;
+			text-align: left;
+		}
+
+		button {
+			width: 100px;
+		}
+	</style>
+	<link rel="stylesheet" href="css/themes/default/style.min.css" />
+	<script src="//ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js"></script>
+	<script src="js/jstree.min.js"></script>
+	<script src='/socket.io/socket.io.js'></script>
+	<script>
+        var mySocket;
+        var dispTimer;
+
+        var table = {
+			owdir: "",
+            data: {}
+        }
+        if (location.search != "") document.location = "/";	//	clear url parameters
+
+		function childof(root, child) {
+			for (idx in root) {
+				if (root[idx].id == child.id) return idx;
+			};
+			return -1
+		}
+
+        function clickAdd() {
+            if ($("#item").val() == "") { alert("Item not selected!"); return; }
+            if ($("#topic").val() == "") { alert("topic must be filled in!"); return; }
+            if ($("#descr").val() == "") { alert("Description must be filled in!"); return; }
+            if ($("#type option:selected").text() == "--select--") { alert("Select Type!"); return; }
+            //var ar = { id: $("#item").val(), descr: $("#descr").val(), divisor: $("#devisions").val(), topic: $("#topic").val(), value: -99 };
+			var ar = {"id":$("#item").val(),"topic":$("#topic").val(),"divisor":$("#devisions").val(),"descr":$("#descr").val(),"value":-99}
+			var found = table.data.length;
+			for (i in table.data) {
+				if (table.data[i].id == $("#item").val()) { found = i; break; }
+			}
+			table.data[found] = ar;
+            $("#item").val("")
+            $("#devisions").val("")
+            $("#topic").val("")
+            $("#descr").val("")
+			showTable();
+			mySocket.emit("updatetable", JSON.stringify(table));
+        }
+
+        function clickDelete(topic) {
+			table.data.splice(topic,1);
+			showTable();
+			mySocket.emit("updatetable", JSON.stringify(table));
+        }
+
+        function clickRefresh() {
+            $("#item").val("")
+            $("#devisions").val("")
+            $("#topic").val("")
+            $("#descr").val("")
+        }
+
+        function clickField(index) {
+            $("#item").val(table.data[index].id)
+            $("#devisions").val(table.data[index].divisor)
+            $("#topic").val(table.data[index].topic)
+            $("#descr").val(table.data[index].descr)
+        }
+		
+		function showTable() {
+			var tab = "";
+            //var ii = 0;
+            for (x in table.data) {
+                tab += ("<tr>");
+                tab += ("<td><img title=\"Edit fields\" width=\"24\" src=\"images/pencil-128.png\" onclick='clickField(\"" + x + "\");'  />");
+                tab += ("<td>" + table.data[x].id + "</td>");
+                tab += ("<td>" + table.data[x].descr + "</td>");
+                tab += ("<td>" + table.data[x].topic + "</td>");
+                tab += ("<td style='width:30px;text-align:center'>" + table.data[x].divisor + "</td>");
+                //tab += ("<td>" + table.data[x].type + "</td>");
+                //tab += ("<td><button style=\"float:right\" onclick='clickField(\"" + x + "\");' >Edit</button></td>");
+		tab += ("<td>&nbsp;&nbsp;<img title='Add device' width='24' src='images/remove.png' onclick='clickDelete(\"" + x + "\");' /></td>");
+                //tab += ("<td><button style=\"float:right\" onclick='clickDelete(\"" + x + "\");' >Delete</button></td>");
+                tab += ("</tr>");
+            //    ii++;
+            }
+            $("#tab").html(tab);
+		}
+
+		var socket = io.connect(null);
+        socket.on('connect', function (data) {
+            mySocket = socket;
+			$('#status').val('Online').css('background-color', 'green');
+		})
+        socket.on('disconnect', function (data) {
+            mySocket = null;
+			$('#status').append('Offline').css('background-color', 'red');;
+		})
+		socket.on("owtree", function (data) {
+			$('#evts').jstree({ core: { data: JSON.parse(data) } })
+        })
+        socket.on('status', function (data) {
+            $("#owstatus").css("background-color", data.owstatus ? 'green' : 'red');
+        })
+        socket.on('table', function (data) {
+			//alert(data);
+			table = JSON.parse(data);
+			showTable();
+        })
+		socket.on('error', function () {
+			$('#messages').append('<li>--Error--</li>');
+		});
+
+        $(document).ready(function () {
+			$('#evts_button').on("click", function () {
+				var instance = $('#evts').jstree(true);
+				instance.deselect_all();
+				instance.select_node('1');
+			});
+			$('#evts')
+                .on("changed.jstree", function (e, data) {
+					if (data.selected.length) {
+						var node = data.instance.get_node(data.selected[0]);
+                        if (node.original.type != "f") {
+                            //alert("Select a 'file' - not a 'folder'");
+                            data.instance.toggle_node(data.node);
+                        } else {
+							var item = node.id.toString();
+							$("#item").val(item.substr(table.owdir.length));
+							$("#evts").jstree('close_all');
+						}
+					}
+                })
+				.jstree({
+					'core': { 'data': { id: startDir, text: "Onwire devices", type: 'd', children: [] }}
+				});
+		})
+	</script>
+
+</head>
+<body class="mdl-color--grey-100 mdl-color-text--grey-700">
+	<div class="mdl-form  mdl-color--white mdl-shadow--2dp mdl-cell mdl-grid mdl-cell--12-col" data-widget-id="00">
+		<div style="width:100%;background-color:#0055bb;color:white;padding:25px;font-size:x-large">
+			OWFS to MQTT gateway
+		</div>
+		<table>
+			<tr>
+				<td>&nbsp;</td>
+				<td colspan="5" >
+				<h5 class="mdl-form__title">
+						Allocated devices
+					</h5>
+				</td>
+			</tr>
+			<tr>
+				<td>&nbsp;</td>
+				<th class="left">Item</th>
+				<th class="left">Description</th>
+				<th class="left">Topic</th>
+				<th class="left">Devisior</th>
+			</tr>
+			<tbody id="tab"></tbody>
+			<tr>
+				<td>
+					<img title="Clear fields" width="24" src="images/delete.png" onclick="clickRefresh();" />
+				</td>
+				<td><input type="text" id="item" class="inp" value="" /></td>
+				<td><input type="text" id="descr" class="inp" value="" /></td>
+				<td><input type="text" id="topic" class="inp" value="" /></td>
+				<td><input type="text" id="devisions" class="inp" style="text-align:center" value="" /></td>
+				<td style=w"idth:40px">
+					&nbsp;&nbsp;<img title="Add device" width="24" src="images/add.png" onclick="clickAdd();" />
+				</td>
+			</tr>
+			<tr><td id="evts" class="dirlist" colspan="4"></td><td></td></tr>
+		</table>
+		<div id="tab"></div>
+		<div style="width:100%" id="messages"></div>
+	</div>
+</body>
+</html>
