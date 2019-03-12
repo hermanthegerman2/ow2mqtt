@@ -18,8 +18,8 @@ The module ow2mqtt-web is the webserver for configuration of deviceses and topic
 
 - Copy the folder server to root ('/server')
 - Copy the folder etc to root ('/etc')
-- give execute rigthts (755) to '/etc/init.d/ow2mqtt'
-- give execute rigthts (755) to '/etc/init.d/ow2mqtt-web'
+- give execute rights (755) to '/etc/init.d/ow2mqtt'
+- give execute rights (755) to '/etc/init.d/ow2mqtt-web'
 - register for auto start on boot: 'update-rc-d owfs2mqtt defaults'
 - register for auto start on boot: 'update-rc-d owfs2mqtt defaults'
 - reboot
